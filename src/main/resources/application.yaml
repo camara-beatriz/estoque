@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: estoque
+  datasource:
+    url: jdbc:mysql://localhost:3306/estoquedevendas?createDatabaseIfNotExist=true
+    username: root
+    password: 123admin
