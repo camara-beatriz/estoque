@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Relatórios de Estoque</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="container mt-4">
+
+<div id="navbar-container"></div>
+<div id="alert-container"></div>
+
+<h1 class="mb-4">Relatórios de Estoque</h1>
+
+<!-- Filtro por período -->
+<div class="mb-4">
+    <h5>Filtrar por data de cadastro:</h5>
+    <div class="row">
+        <div class="col">
+            <label>Início:</label>
+            <input type="date" id="data-inicio" class="form-control">
+        </div>
+        <div class="col">
+            <label>Fim:</label>
+            <input type="date" id="data-fim" class="form-control">
+        </div>
+        <div class="col d-flex align-items-end">
+            <button class="btn btn-success me-2" onclick="carregarRelatorios(true)">Filtrar</button>
+            <button class="btn btn-secondary" onclick="limparFiltro()">Limpar filtro</button>
+        </div>
+    </div>
+</div>
+
+<!-- Relatórios -->
+<div class="row" id="relatorios">
+    <div class="col-md-4 mb-3">
+        <div class="card border-primary">
+            <div class="card-body">
+                <h5 class="card-title">Total de Produtos</h5>
+                <p class="card-text" id="total-produtos">-</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-3">
+        <div class="card border-success">
+            <div class="card-body">
+                <h5 class="card-title">Quantidade Total em Estoque</h5>
+                <p class="card-text" id="total-estoque">-</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-3">
+        <div class="card border-warning">
+            <div class="card-body">
+                <h5 class="card-title">Valor Total em Estoque</h5>
+                <p class="card-text" id="valor-total">-</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-3">
+        <div class="card border-danger">
+            <div class="card-body">
+                <h5 class="card-title">Produto com Menor Estoque</h5>
+                <p class="card-text" id="menor-estoque">-</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-3">
+        <div class="card border-dark">
+            <div class="card-body">
+                <h5 class="card-title">Produto Mais Caro</h5>
+                <p class="card-text" id="produto-mais-caro">-</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráfico -->
+<h4 class="mt-5">Gráfico: Quantidade em Estoque por Produto</h4>
+<canvas id="graficoEstoque" height="100"></canvas>
+
+<script>
+    let graficoEstoque = null;
+
+    function showAlert(message, type = "info", duration = 3000) {
+        const container = document.getElementById("alert-container");
+        container.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+            </div>
+        `;
+        setTimeout(() => {
+            container.innerHTML = '';
+        }, duration);
+    }
+
+    function gerarGraficoEstoque(produtos) {
+        const labels = produtos.map(p => p.nome);
+        const dados = produtos.map(p => p.quantidadeEstoque);
+
+        const ctx = document.getElementById("graficoEstoque").getContext("2d");
+
+        if (graficoEstoque) {
+            graficoEstoque.destroy();
+        }
+
+        graficoEstoque = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Quantidade em Estoque',
+                    data: dados,
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ` ${ctx.parsed.x} unidades`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Unidades' }
+                    },
+                    y: {
+                        title: { display: true, text: 'Produtos' }
+                    }
+                }
+            }
+        });
+    }
+
+    async function carregarRelatorios(usandoFiltro = false) {
+        let url = "/produtos";
+
+        if (usandoFiltro) {
+            const inicio = document.getElementById('data-inicio').value;
+            const fim = document.getElementById('data-fim').value;
+
+            if (!inicio || !fim) {
+                showAlert("Preencha ambas as datas para aplicar o filtro.", "warning");
+                return;
+            }
+
+            const inicioISO = new Date(`${inicio}T00:00:00`).toISOString();
+            const fimISO = new Date(`${fim}T23:59:59.999`).toISOString();
+            url = `/produtos/por-data?inicio=${inicioISO}&fim=${fimISO}`;
+        }
+
+        try {
+            const response = await fetch(url);
+            const produtos = await response.json();
+
+            if (!produtos.length) {
+                showAlert("Nenhum produto encontrado no período selecionado.", "warning");
+                limparRelatorios();
+                if (graficoEstoque) graficoEstoque.destroy();
+                return;
+            }
+
+            const totalProdutos = produtos.length;
+            const totalEstoque = produtos.reduce((acc, p) => acc + p.quantidadeEstoque, 0);
+            const valorTotal = produtos.reduce((acc, p) => acc + p.preco * p.quantidadeEstoque, 0);
+
+            const menorEstoque = produtos.reduce((min, p) =>
+                p.quantidadeEstoque < min.quantidadeEstoque ? p : min, produtos[0]);
+
+            const maisCaro = produtos.reduce((max, p) =>
+                p.preco > max.preco ? p : max, produtos[0]);
+
+            document.getElementById("total-produtos").textContent = totalProdutos;
+            document.getElementById("total-estoque").textContent = totalEstoque;
+            document.getElementById("valor-total").textContent = "R$ " + valorTotal.toFixed(2);
+            document.getElementById("menor-estoque").textContent = `${menorEstoque.nome} (${menorEstoque.quantidadeEstoque})`;
+            document.getElementById("produto-mais-caro").textContent = `${maisCaro.nome} (R$ ${maisCaro.preco.toFixed(2)})`;
+
+            gerarGraficoEstoque(produtos);
+
+        } catch (error) {
+            showAlert("Erro ao carregar os relatórios.", "danger");
+            console.error(error);
+        }
+    }
+
+    function limparRelatorios() {
+        document.getElementById("total-produtos").textContent = "-";
+        document.getElementById("total-estoque").textContent = "-";
+        document.getElementById("valor-total").textContent = "-";
+        document.getElementById("menor-estoque").textContent = "-";
+        document.getElementById("produto-mais-caro").textContent = "-";
+    }
+
+    function limparFiltro() {
+        document.getElementById('data-inicio').value = '';
+        document.getElementById('data-fim').value = '';
+        carregarRelatorios(false);
+    }
+
+    fetch("components/navbar.html")
+        .then(response => response.text())
+        .then(data => {
+            document.getElementById("navbar-container").innerHTML = data;
+        });
+
+    window.onload = () => carregarRelatorios(false);
+</script>
+
+</body>
+</html>
