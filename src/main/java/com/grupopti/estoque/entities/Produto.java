@@ -7,8 +7,7 @@ import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.LinkedHashSet;
-import java.util.Set;
+
 
 @Getter
 @Setter
@@ -18,7 +17,7 @@ public class Produto {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_produto")
-    private Integer id;
+    private Long id;
 
     @Column(name = "nome")
     private String nome;
@@ -38,10 +37,6 @@ public class Produto {
     @Column(name = "data_cadastro")
     private Instant dataCadastro;
 
-    @OneToMany(mappedBy = "idProduto")
-    private Set<Itemdevenda> itemdevendas = new LinkedHashSet<>();
 
-    @OneToMany(mappedBy = "idProduto")
-    private Set<Movimentacaodeestoque> movimentacaodeestoques = new LinkedHashSet<>();
 
 }

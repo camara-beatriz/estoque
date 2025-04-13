@@ -20,7 +20,7 @@ public class ProdutoService {
 
         private List<ProdutoDTO> converteDados(List<Produto> produtos){
             return produtos.stream()
-                    .map(s -> new ProdutoDTO(s.getNome(), s.getPreco(), s.getQuantidadeEstoque(), s.getDataCadastro()))
+                    .map(s -> new ProdutoDTO(s.getId(), s.getNome(), s.getPreco(), s.getQuantidadeEstoque(), s.getDataCadastro()))
                     .collect(Collectors.toList());
         }
 
@@ -38,7 +38,7 @@ public class ProdutoService {
         }
 
         public Produto getProductById(Long id) {
-            return repository.findById(Math.toIntExact(id)).orElseThrow(() -> new ResourceNotFoundException("Produto com ID " + id + " não encontrado."));
+            return repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Produto com ID " + id + " não encontrado."));
         }
 
 
@@ -48,7 +48,7 @@ public class ProdutoService {
         }
 
         public void deleteProduct(Long id) {
-            repository.deleteById(Math.toIntExact(id));
+            repository.deleteById(id);
         }
 
         public void deleteProductByName(String nome) {

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Lista de Produtos</title>
+</head>
+<body>
+<nav>
+    <a href="index.html">Cadastrar novo produto</a>
+</nav>
+
+<h1>Produtos Cadastrados</h1>
+
+<!-- 🔍 Filtro por período -->
+<div>
+    <h3>Filtrar por período (data de cadastro):</h3>
+    <label>Início: <input type="date" id="data-inicio" class="form-control"></label>
+    <label>Fim: <input type="date" id="data-fim" class="form-control"></label>
+    <button onclick="filtrarPorData()">Filtrar</button>
+    <button onclick="carregarProdutos()">Limpar filtro</button>
+</div>
+
+<br>
+
+<table border="1">
+    <thead>
+    <tr>
+        <th>Nome</th>
+        <th>Preço</th>
+        <th>Quantidade</th>
+        <th>Alterar Quantidade</th>
+        <th>Deletar</th>
+    </tr>
+    </thead>
+    <tbody id="tabela-produtos"></tbody>
+</table>
+
+<script>
+    async function carregarProdutos() {
+        const resposta = await fetch('/produtos');
+        const produtos = await resposta.json();
+        renderizarTabela(produtos);
+    }
+
+    async function filtrarPorData() {
+        const inicio = document.getElementById('data-inicio').value;
+        const fim = document.getElementById('data-fim').value;
+
+        if (!inicio || !fim) {
+            showAlert("Preencha ambas as datas.", "warning");
+            return;
+        }
+
+        const inicioISO = new Date(`${inicio}T00:00:00`).toISOString();
+        const fimISO = new Date(`${fim}T23:59:59.999`).toISOString();
+
+        // salvarDatasFiltro(inicio, fim); // continua funcionando, salva no localStorage
+
+        const resposta = await fetch(`/produtos/por-data?inicio=${inicioISO}&fim=${fimISO}`);
+        const produtos = await resposta.json();
+        produtosGlobais = produtos;
+        renderizarTabela(produtos);
+    }
+
+
+    function renderizarTabela(produtos) {
+        const tabela = document.getElementById('tabela-produtos');
+        tabela.innerHTML = '';
+
+        produtos.forEach(produto => {
+            const linha = document.createElement('tr');
+            const inputId = `qtd-${produto.nome}`;
+            linha.innerHTML = `
+                    <td>${produto.nome}</td>
+                    <td>R$ ${produto.preco.toFixed(2)}</td>
+                    <td>${produto.quantidadeEstoque}</td>
+                    <td>
+                        <input type="number" id="${inputId}" value="${produto.quantidadeEstoque}" min="0">
+                        <button onclick="atualizarQuantidade(${produto.id}, '${inputId}')">Atualizar</button>
+                    </td>
+                    <td><button onclick="deletarProduto(${produto.id})">Deletar</button></td>
+                `;
+            tabela.appendChild(linha);
+        });
+    }
+
+    async function atualizarQuantidade(id, inputId) {
+        const quantidade = document.getElementById(inputId).value;
+        const response = await fetch(`/produtos/${id}/quantidade?quantidade=${quantidade}`, {
+            method: 'PATCH'
+        });
+
+        if (response.ok) {
+            alert("Quantidade atualizada!");
+            carregarProdutos();
+        } else {
+            alert("Erro ao atualizar.");
+        }
+    }
+
+    async function deletarProduto(id) {
+        if (!confirm("Deseja mesmo deletar este produto?")) return;
+
+        const response = await fetch(`/produtos/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            alert("Produto deletado!");
+            carregarProdutos();
+        } else {
+            alert("Erro ao deletar.");
+        }
+    }
+
+    window.onload = carregarProdutos;
+</script>
+</body>
+</html>
